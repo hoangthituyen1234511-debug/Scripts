@@ -1,0 +1,136 @@
+-- Escape Waves For Lucky Blocks
+-- Auto OG + Dodge Tsunami + Anti Reset + Anti AFK
+-- Made by m.hoang | Delta X
+
+-- ================= CONFIG =================
+local TARGET_NAME = "OG Lucky Block"
+local TELEPORT_OFFSET = Vector3.new(0, 3, 0)
+local CHECK_DELAY = 1
+local SAFE_HEIGHT = 120 -- độ cao né sóng
+-- ==========================================
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local VirtualUser = game:GetService("VirtualUser")
+local player = Players.LocalPlayer
+
+-- ===== ANTI AFK =====
+player.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+end)
+
+-- WAIT CHARACTER
+local function getChar()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char, char:WaitForChild("Humanoid"), char:WaitForChild("HumanoidRootPart")
+end
+
+local character, humanoid, hrp = getChar()
+
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    character, humanoid, hrp = getChar()
+end)
+
+-- ===== STATE =====
+local AutoFarm = false
+local Dodging = false
+local SafeCFrame = nil
+
+-- ===== FIND OG =====
+local function findOG()
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("BasePart") and v.Name == TARGET_NAME then
+            return v
+        end
+    end
+    return nil
+end
+
+-- ===== DETECT TSUNAMI =====
+local function tsunamiIncoming()
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("BasePart") and string.lower(v.Name):find("wave") then
+            return true
+        end
+    end
+    return false
+end
+
+-- ===== MAIN LOOP =====
+task.spawn(function()
+    while task.wait(CHECK_DELAY) do
+        if AutoFarm and hrp and humanoid.Health > 0 then
+
+            -- Nếu có sóng → bay lên cao né
+            if tsunamiIncoming() then
+                if not Dodging then
+                    Dodging = true
+                    SafeCFrame = hrp.CFrame
+                end
+                hrp.CFrame = CFrame.new(
+                    hrp.Position.X,
+                    SAFE_HEIGHT,
+                    hrp.Position.Z
+                )
+            else
+                -- Hết sóng → quay lại farm
+                if Dodging and SafeCFrame then
+                    hrp.CFrame = SafeCFrame
+                    Dodging = false
+                end
+
+                local block = findOG()
+                if block then
+                    pcall(function()
+                        hrp.CFrame = CFrame.new(block.Position + TELEPORT_OFFSET)
+                    end)
+                end
+            end
+        end
+    end
+end)
+
+-- ===== ANTI RESET =====
+humanoid.Died:Connect(function()
+    task.wait(2)
+    character, humanoid, hrp = getChar()
+end)
+
+-- ================= GUI =================
+local ScreenGui = Instance.new("ScreenGui", player.PlayerGui)
+ScreenGui.Name = "OGAutoGUI"
+
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 240, 0, 140)
+Frame.Position = UDim2.new(0.5, -120, 0.3, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Frame.Active = true
+Frame.Draggable = true
+
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1,0,0,30)
+Title.BackgroundTransparency = 1
+Title.Text = "OG Auto | Dodge Wave"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 18
+
+local Toggle = Instance.new("TextButton", Frame)
+Toggle.Size = UDim2.new(0.8,0,0,40)
+Toggle.Position = UDim2.new(0.1,0,0.45,0)
+Toggle.Text = "OFF"
+Toggle.Font = Enum.Font.SourceSansBold
+Toggle.TextSize = 16
+Toggle.TextColor3 = Color3.new(1,1,1)
+Toggle.BackgroundColor3 = Color3.fromRGB(70,70,70)
+
+Toggle.MouseButton1Click:Connect(function()
+    AutoFarm = not AutoFarm
+    Toggle.Text = AutoFarm and "ON" or "OFF"
+    Toggle.BackgroundColor3 = AutoFarm
+        and Color3.fromRGB(0,170,0)
+        or Color3.fromRGB(70,70,70)
+end)
